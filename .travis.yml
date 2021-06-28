@@ -1,0 +1,41 @@
+language: python
+python: 3.7
+cache: pip
+env:
+  global:
+    - path=$(pwd)
+    - REPO_NAME="${PWD##*/}"
+    - PIPENV_IGNORE_VIRTUALENVS=1
+    - SAM_CLI_TELEMETRY=0
+install:
+  - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2/awscliv2.zip"
+  - pushd /tmp/awscliv2 && unzip /tmp/awscliv2/awscliv2.zip && sudo ./aws/install && popd
+  - curl "https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip" -o "/tmp/awssamcli/awssamcli.zip"
+  - pushd /tmp/awssamcli && unzip ./awssamcli/awssamcli.zip -d awssamcli && sudo ./awssamcli/install && popd
+  - pip install pipenv
+  - pipenv install --dev
+before_script:
+# Setup AWS CLI profile
+  - mkdir -p ~/.aws
+  - echo -e "[default]\nregion=us-east-1\nsource_profile=default\nrole_arn=$AwsCfServiceRoleArn" > ~/.aws/config
+  - echo -e "[default]\nregion=us-east-1\naws_access_key_id=$AwsTravisAccessKey\naws_secret_access_key=$AwsTravisSecretAccessKey" > ~/.aws/credentials
+stages:
+  - name: validate
+  - name: deploy
+    if: tag =~ /^v([0-9]+)\.([0-9]+)\.([0-9]+)(?:([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+)?$/
+jobs:
+  fast_finish: true
+  include:
+    - stage: validate
+      script:
+        - pre-commit run --all-files
+        - cfn generate
+        - cfn validate
+        - cfn submit --dry-run
+#        - cfn test
+#        - python -m pytest tests/ -v
+    - stage: deploy
+      script:
+        - cfn generate
+        - cfn validate
+        - cfn submit --set-default

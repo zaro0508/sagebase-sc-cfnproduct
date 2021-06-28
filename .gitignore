@@ -127,3 +127,17 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# jetbrains
+.idea
+
+# aws resource provider auto-generated files
+target/
+
+# our logs
+rpdk.log
+
+# other ignores
+build/
+docs/
+*.zip
